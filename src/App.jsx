@@ -83,6 +83,42 @@ function PageEditor({
   );
 }
 
+function popLastCharacter(el) {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let lastTextNode = null;
+  while (walker.nextNode()) lastTextNode = walker.currentNode;
+  if (!lastTextNode || lastTextNode.data.length === 0) return null;
+  const ch = lastTextNode.data.slice(-1);
+  lastTextNode.data = lastTextNode.data.slice(0, -1);
+  if (lastTextNode.data.length === 0)
+    lastTextNode.parentNode.removeChild(lastTextNode);
+  return ch;
+}
+
+function prependText(el, text) {
+  if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
+    el.firstChild.data = text + el.firstChild.data;
+  } else {
+    el.insertBefore(document.createTextNode(text), el.firstChild);
+  }
+}
+
+function placeCaretAtOffset(el, offset) {
+  el.focus();
+  const textNode =
+    el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE
+      ? el.firstChild
+      : null;
+  if (!textNode) return;
+  const range = document.createRange();
+  const sel = window.getSelection();
+  const pos = Math.min(offset, textNode.data.length);
+  range.setStart(textNode, pos);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 export default function App() {
   const [pages, setPages] = useState([emptyPage(1), emptyPage(2)]);
   const [spreadIndex, setSpreadIndex] = useState(0);
@@ -95,6 +131,7 @@ export default function App() {
     underline: false,
   });
   const editorRefs = useRef({});
+  const overflowTask = useRef(null);
   const focusedPageId = useRef(pages[0].id);
   const [docVersion, setDocVersion] = useState(0);
 
@@ -123,12 +160,73 @@ export default function App() {
     refreshFormatState();
   };
 
+  useEffect(() => {
+    const task = overflowTask.current;
+    if (!task) return;
+    const { sourceId } = task;
+    const idx = pages.findIndex((p) => p.id === sourceId);
+    const nextPage = idx !== -1 ? pages[idx + 1] : null;
+    if (!nextPage) return;
+
+    const sourceEl = editorRefs.current[sourceId];
+    const nextEl = editorRefs.current[nextPage.id];
+    if (!sourceEl) {
+      overflowTask.current = null;
+      return;
+    }
+
+    if (!nextEl) {
+      const nextSpreadIdx = Math.floor((idx + 1) / 2);
+      if (nextSpreadIdx !== spreadIndex) setSpreadIndex(nextSpreadIdx);
+      return;
+    }
+
+    let moved = "";
+    while (sourceEl.scrollHeight > sourceEl.clientHeight + 1) {
+      const ch = popLastCharacter(sourceEl);
+      if (ch === null) break;
+      moved = ch + moved;
+    }
+
+    if (moved) {
+      prependText(nextEl, moved);
+      setPages((prev) =>
+        prev.map((p) => {
+          if (p.id === sourceId) return { ...p, html: sourceEl.innerHTML };
+          if (p.id === nextPage.id) return { ...p, html: nextEl.innerHTML };
+          return p;
+        }),
+      );
+      if (focusedPageId.current === sourceId) {
+        focusedPageId.current = nextPage.id;
+        placeCaretAtOffset(nextEl, moved.length);
+      }
+    }
+    overflowTask.current = null;
+  }, [pages, spreadIndex]);
+
   const updatePageContent = (id) => {
     const el = editorRefs.current[id];
     if (!el) return;
     setPages((prev) =>
       prev.map((p) => (p.id === id ? { ...p, html: el.innerHTML } : p)),
     );
+    handleOverflow(id);
+  };
+
+  const handleOverflow = (id) => {
+    const el = editorRefs.current[id];
+    if (!el || el.scrollHeight <= el.clientHeight + 1) return;
+
+    overflowTask.current = { sourceId: id };
+    setPages((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx === -1 || prev[idx + 1]) return prev;
+      const nextId = Math.max(...prev.map((p) => p.id)) + 1;
+      const updated = [...prev];
+      updated.splice(idx + 1, 0, emptyPage(nextId));
+      return updated;
+    });
   };
 
   const addPagePair = () => {
@@ -238,6 +336,8 @@ export default function App() {
             lineHeight: `${LINE_HEIGHT}px`,
             color: theme.textColor,
             minHeight: LINES_PER_PAGE * LINE_HEIGHT,
+            maxHeight: LINES_PER_PAGE * LINE_HEIGHT,
+            overflow: "hidden",
           }}
         />
       ) : (

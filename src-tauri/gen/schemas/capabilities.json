@@ -1,1 +1,15 @@
-{"default":{"identifier":"default","description":"Default permissions for the notepad app","local":true,"windows":["main"],"permissions":["core:default","fs:default","fs:allow-write-text-file","fs:allow-read-text-file","dialog:default"]}}
+{
+  "default": {
+    "identifier": "default",
+    "description": "Default permissions for the notepad app",
+    "local": true,
+    "windows": ["main"],
+    "permissions": [
+      "core:default",
+      "fs:default",
+      "fs:allow-write-text-file",
+      "fs:allow-read-text-file",
+      "dialog:default"
+    ]
+  }
+}
