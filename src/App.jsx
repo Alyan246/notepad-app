@@ -3,11 +3,51 @@ import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
 
 const THEMES = [
-  { id: "classic", swatch: "#f7f7f4", label: "Classic", pageBg: "#d9d9dc", lineColor: "#3a3a3a", textColor: "#1a1a1a", swatchTextColor: "#1a1a1a" },
-  { id: "noir", swatch: "#111113", label: "Noir", pageBg: "#3d3d40", lineColor: "#8a8a8f", textColor: "#f2f2f2", swatchTextColor: "#f2f2f2" },
-  { id: "indigo", swatch: "#122064", label: "Indigo", pageBg: "#dfe2f2", lineColor: "#3d4a91", textColor: "#1a2040", swatchTextColor: "#f2f2f2" },
-  { id: "sepia", swatch: "#f6e8ab", label: "Sepia", pageBg: "#f2e8c9", lineColor: "#8a7638", textColor: "#4a3d17", swatchTextColor: "#4a3418" },
-  { id: "blossom", swatch: "#f0a8c8", label: "Blossom", pageBg: "#f7e3ee", lineColor: "#a85a80", textColor: "#4a1f34", swatchTextColor: "#4a1f34" },
+  {
+    id: "classic",
+    swatch: "#f7f7f4",
+    label: "Classic",
+    pageBg: "#d9d9dc",
+    lineColor: "#3a3a3a",
+    textColor: "#1a1a1a",
+    swatchTextColor: "#1a1a1a",
+  },
+  {
+    id: "noir",
+    swatch: "#111113",
+    label: "Noir",
+    pageBg: "#3d3d40",
+    lineColor: "#8a8a8f",
+    textColor: "#f2f2f2",
+    swatchTextColor: "#f2f2f2",
+  },
+  {
+    id: "indigo",
+    swatch: "#122064",
+    label: "Indigo",
+    pageBg: "#dfe2f2",
+    lineColor: "#3d4a91",
+    textColor: "#1a2040",
+    swatchTextColor: "#f2f2f2",
+  },
+  {
+    id: "sepia",
+    swatch: "#f6e8ab",
+    label: "Sepia",
+    pageBg: "#f2e8c9",
+    lineColor: "#8a7638",
+    textColor: "#4a3d17",
+    swatchTextColor: "#4a3418",
+  },
+  {
+    id: "blossom",
+    swatch: "#f0a8c8",
+    label: "Blossom",
+    pageBg: "#f7e3ee",
+    lineColor: "#a85a80",
+    textColor: "#4a1f34",
+    swatchTextColor: "#4a1f34",
+  },
 ];
 
 const LINES_PER_PAGE = 15;
@@ -17,15 +57,46 @@ function emptyPage(id) {
   return { id, html: "" };
 }
 
+function PageEditor({
+  pageId,
+  initialHtml,
+  registerRef,
+  onFocusPage,
+  onInputPage,
+  className,
+  style,
+}) {
+  const [html] = useState(initialHtml);
+
+  return (
+    <div
+      ref={(el) => registerRef(pageId, el)}
+      contentEditable
+      suppressContentEditableWarning
+      onFocus={() => onFocusPage(pageId)}
+      onInput={() => onInputPage(pageId)}
+      dangerouslySetInnerHTML={{ __html: html }}
+      className={className}
+      style={style}
+      spellCheck={false}
+    />
+  );
+}
+
 export default function App() {
   const [pages, setPages] = useState([emptyPage(1), emptyPage(2)]);
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [themeId, setThemeId] = useState("classic");
   const [menuOpen, setMenuOpen] = useState(false);
   const [filePath, setFilePath] = useState(null);
-  const [activeFormats, setActiveFormats] = useState({ bold: false, italic: false, underline: false });
+  const [activeFormats, setActiveFormats] = useState({
+    bold: false,
+    italic: false,
+    underline: false,
+  });
   const editorRefs = useRef({});
   const focusedPageId = useRef(pages[0].id);
+  const [docVersion, setDocVersion] = useState(0);
 
   const theme = THEMES.find((t) => t.id === themeId);
   const leftPage = pages[spreadIndex * 2];
@@ -41,7 +112,8 @@ export default function App() {
 
   useEffect(() => {
     document.addEventListener("selectionchange", refreshFormatState);
-    return () => document.removeEventListener("selectionchange", refreshFormatState);
+    return () =>
+      document.removeEventListener("selectionchange", refreshFormatState);
   }, [refreshFormatState]);
 
   const applyFormat = (command) => {
@@ -54,7 +126,9 @@ export default function App() {
   const updatePageContent = (id) => {
     const el = editorRefs.current[id];
     if (!el) return;
-    setPages((prev) => prev.map((p) => (p.id === id ? { ...p, html: el.innerHTML } : p)));
+    setPages((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, html: el.innerHTML } : p)),
+    );
   };
 
   const addPagePair = () => {
@@ -77,10 +151,16 @@ export default function App() {
     try {
       const el = editorRefs.current[focusedPageId.current];
       const latestPages = el
-        ? pages.map((p) => (p.id === focusedPageId.current ? { ...p, html: el.innerHTML } : p))
+        ? pages.map((p) =>
+            p.id === focusedPageId.current ? { ...p, html: el.innerHTML } : p,
+          )
         : pages;
 
-      const path = filePath || (await save({ filters: [{ name: "Notepad file", extensions: ["note"] }] }));
+      const path =
+        filePath ||
+        (await save({
+          filters: [{ name: "Notepad file", extensions: ["note"] }],
+        }));
       if (!path) return;
 
       const doc = {
@@ -98,7 +178,9 @@ export default function App() {
 
   const handleOpen = async () => {
     try {
-      const path = await open({ filters: [{ name: "Notepad file", extensions: ["note"] }] });
+      const path = await open({
+        filters: [{ name: "Notepad file", extensions: ["note"] }],
+      });
       if (!path) return;
       const raw = await readTextFile(path);
       const doc = JSON.parse(raw);
@@ -108,7 +190,10 @@ export default function App() {
         return;
       }
       setPages(doc.pages.length ? doc.pages : [emptyPage(1), emptyPage(2)]);
-      setThemeId(THEMES.some((t) => t.id === doc.themeId) ? doc.themeId : "classic");
+      setDocVersion((v) => v + 1);
+      setThemeId(
+        THEMES.some((t) => t.id === doc.themeId) ? doc.themeId : "classic",
+      );
       setSpreadIndex(0);
       setFilePath(path);
     } catch (err) {
@@ -139,18 +224,21 @@ export default function App() {
         ))}
       </div>
       {page ? (
-        <div
-          ref={(el) => {
-            if (el) editorRefs.current[page.id] = el;
+        <PageEditor
+          key={`${page.id}-${docVersion}`}
+          pageId={page.id}
+          initialHtml={page.html}
+          registerRef={(id, el) => {
+            if (el) editorRefs.current[id] = el;
           }}
-          contentEditable
-          suppressContentEditableWarning
-          onFocus={() => (focusedPageId.current = page.id)}
-          onInput={() => updatePageContent(page.id)}
-          dangerouslySetInnerHTML={{ __html: page.html }}
+          onFocusPage={(id) => (focusedPageId.current = id)}
+          onInputPage={(id) => updatePageContent(id)}
           className="relative px-8 pt-8 outline-none font-mono text-[15px]"
-          style={{ lineHeight: `${LINE_HEIGHT}px`, color: theme.textColor, minHeight: LINES_PER_PAGE * LINE_HEIGHT }}
-          spellCheck={false}
+          style={{
+            lineHeight: `${LINE_HEIGHT}px`,
+            color: theme.textColor,
+            minHeight: LINES_PER_PAGE * LINE_HEIGHT,
+          }}
         />
       ) : (
         <div style={{ minHeight: LINES_PER_PAGE * LINE_HEIGHT }} />
@@ -167,9 +255,12 @@ export default function App() {
   return (
     <div
       className="min-h-screen flex flex-col items-center py-10 px-6"
-      style={{ background: "linear-gradient(180deg, #eef1f4 0%, #b6bcc8 55%, #9aa0ae 100%)" }}
+      style={{
+        background:
+          "linear-gradient(180deg, #eef1f4 0%, #b6bcc8 55%, #9aa0ae 100%)",
+      }}
     >
-      {/* Toolbar */}
+      {/*Toolbar*/}
       <div className="w-full max-w-4xl flex items-center justify-between mb-10">
         <div className="flex items-center gap-3">
           <button
@@ -228,7 +319,10 @@ export default function App() {
                 style={{
                   backgroundColor: t.swatch,
                   color: t.swatchTextColor,
-                  boxShadow: themeId === t.id ? "0 0 0 3px #ffffff, 0 0 0 6px #7c5cfa" : "none",
+                  boxShadow:
+                    themeId === t.id
+                      ? "0 0 0 3px #ffffff, 0 0 0 6px #7c5cfa"
+                      : "none",
                 }}
                 aria-label={`${t.label} theme`}
                 title={t.label}
@@ -251,15 +345,21 @@ export default function App() {
         </div>
       </div>
 
-      {/* Book spread */}
-      <div className="w-full max-w-4xl flex rounded-3xl overflow-hidden shadow-xl" style={{ minHeight: LINES_PER_PAGE * LINE_HEIGHT + 64 }}>
+      {/*Book*/}
+      <div
+        className="w-full max-w-4xl flex rounded-3xl overflow-hidden shadow-xl"
+        style={{ minHeight: LINES_PER_PAGE * LINE_HEIGHT + 64 }}
+      >
         {renderPage(leftPage, spreadIndex * 2 + 1)}
         <div style={{ width: 3, backgroundColor: "#000" }} />
         {renderPage(rightPage, spreadIndex * 2 + 2)}
       </div>
 
-      {/* Page nav footer */}
-      <div className="flex items-center gap-4 mt-6 text-sm" style={{ color: "#4a4f5a" }}>
+      {/*Page nav footer*/}
+      <div
+        className="flex items-center gap-4 mt-6 text-sm"
+        style={{ color: "#4a4f5a" }}
+      >
         <button
           disabled={spreadIndex === 0}
           onClick={() => setSpreadIndex((i) => Math.max(0, i - 1))}
@@ -272,7 +372,11 @@ export default function App() {
           Pages {spreadIndex * 2 + 1}–{spreadIndex * 2 + 2} of {pages.length}
         </span>
         {spreadIndex * 2 + 2 >= pages.length ? (
-          <button onClick={addPagePair} className="px-3 py-1 rounded-full" style={{ backgroundColor: "#dcdde1" }}>
+          <button
+            onClick={addPagePair}
+            className="px-3 py-1 rounded-full"
+            style={{ backgroundColor: "#dcdde1" }}
+          >
             + Add pages
           </button>
         ) : (
@@ -286,7 +390,7 @@ export default function App() {
         )}
       </div>
 
-      {/* Slide-out menu */}
+      {/*Slide-out menu*/}
       {menuOpen && (
         <div
           className="fixed inset-0 z-50 flex"
@@ -297,15 +401,28 @@ export default function App() {
             className="relative w-72 h-full bg-white dark:bg-neutral-900 p-5 flex flex-col gap-2 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <span className="text-xs font-semibold tracking-wide text-neutral-400 mb-2">DOCUMENT</span>
-            <div className="text-sm text-neutral-500 mb-4 truncate">{filePath || "Not saved yet"}</div>
-            <button onClick={handleOpen} className="text-sm text-left px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800">
+            <span className="text-xs font-semibold tracking-wide text-neutral-400 mb-2">
+              DOCUMENT
+            </span>
+            <div className="text-sm text-neutral-500 mb-4 truncate">
+              {filePath || "Not saved yet"}
+            </div>
+            <button
+              onClick={handleOpen}
+              className="text-sm text-left px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
               Open file…
             </button>
-            <button onClick={handleSave} className="text-sm text-left px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800">
+            <button
+              onClick={handleSave}
+              className="text-sm text-left px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
               Save
             </button>
-            <button onClick={addPagePair} className="text-sm text-left px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800">
+            <button
+              onClick={addPagePair}
+              className="text-sm text-left px-3 py-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800"
+            >
               Add pages
             </button>
           </div>
