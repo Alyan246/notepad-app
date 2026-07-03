@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
-  "productName": "notepad-app",
+  "productName": "Padore",
   "version": "0.1.0",
   "identifier": "com.alyan.notepad",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Notepad",
+        "title": "Padore - Notepad App",
         "width": 1000,
         "height": 700,
         "minWidth": 600,
