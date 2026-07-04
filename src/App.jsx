@@ -52,6 +52,7 @@ const THEMES = [
 
 const LINES_PER_PAGE = 15;
 const LINE_HEIGHT = 34;
+const PAGE_PADDING_TOP = 32;
 
 function emptyPage(id) {
   return { id, html: "" };
@@ -84,7 +85,7 @@ function PageEditor({
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      insertPlainText("\n");
+      document.execCommand("insertLineBreak");
       onInputPage(pageId);
     }
   };
@@ -102,7 +103,10 @@ function PageEditor({
       contentEditable
       suppressContentEditableWarning
       onFocus={() => onFocusPage(pageId)}
-      onInput={() => onInputPage(pageId)}
+      onInput={() => {
+        registerRef(pageId, editorRefs.current?.[pageId]);
+        onInputPage(pageId);
+      }}
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       dangerouslySetInnerHTML={{ __html: html }}
@@ -113,23 +117,37 @@ function PageEditor({
   );
 }
 
-function popLastCharacter(el) {
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-  let lastTextNode = null;
-  while (walker.nextNode()) lastTextNode = walker.currentNode;
-  if (!lastTextNode || lastTextNode.data.length === 0) return null;
-  const ch = lastTextNode.data.slice(-1);
-  lastTextNode.data = lastTextNode.data.slice(0, -1);
-  if (lastTextNode.data.length === 0)
-    lastTextNode.parentNode.removeChild(lastTextNode);
-  return ch;
+function popLastUnit(el) {
+  let node = el.lastChild;
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      if (node.data.length > 0) {
+        const ch = node.data.slice(-1);
+        node.data = node.data.slice(0, -1);
+        if (node.data.length === 0) node.parentNode.removeChild(node);
+        return { type: "char", value: ch };
+      }
+      const prev = node.previousSibling;
+      node.parentNode.removeChild(node);
+      node = prev;
+      continue;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "BR") {
+      node.parentNode.removeChild(node);
+      return { type: "br" };
+    }
+    node = node.previousSibling;
+  }
+  return null;
 }
 
-function prependText(el, text) {
-  if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
-    el.firstChild.data = text + el.firstChild.data;
+function prependUnit(el, unit) {
+  if (unit.type === "br") {
+    el.insertBefore(document.createElement("br"), el.firstChild);
+  } else if (el.firstChild && el.firstChild.nodeType === Node.TEXT_NODE) {
+    el.firstChild.data = unit.value + el.firstChild.data;
   } else {
-    el.insertBefore(document.createTextNode(text), el.firstChild);
+    el.insertBefore(document.createTextNode(unit.value), el.firstChild);
   }
 }
 
@@ -211,15 +229,19 @@ export default function App() {
       return;
     }
 
-    let moved = "";
+    const movedUnits = [];
     while (sourceEl.scrollHeight > sourceEl.clientHeight + 1) {
-      const ch = popLastCharacter(sourceEl);
-      if (ch === null) break;
-      moved = ch + moved;
+      const unit = popLastUnit(sourceEl);
+      if (unit === null) break;
+      movedUnits.unshift(unit);
     }
+    sourceEl.scrollTop = 0;
 
-    if (moved) {
-      prependText(nextEl, moved);
+    if (movedUnits.length) {
+      movedUnits.forEach((unit) => prependUnit(nextEl, unit));
+      const moved = movedUnits
+        .map((u) => (u.type === "br" ? "\n" : u.value))
+        .join("");
       setPages((prev) =>
         prev.map((p) => {
           if (p.id === sourceId) return { ...p, html: sourceEl.innerHTML };
@@ -238,6 +260,7 @@ export default function App() {
   const updatePageContent = (id) => {
     const el = editorRefs.current[id];
     if (!el) return;
+    el.scrollTop = 0;
     setPages((prev) =>
       prev.map((p) => (p.id === id ? { ...p, html: el.innerHTML } : p)),
     );
@@ -365,10 +388,10 @@ export default function App() {
           style={{
             lineHeight: `${LINE_HEIGHT}px`,
             color: theme.textColor,
-            minHeight: LINES_PER_PAGE * LINE_HEIGHT,
-            maxHeight: LINES_PER_PAGE * LINE_HEIGHT,
+            minHeight: LINES_PER_PAGE * LINE_HEIGHT + PAGE_PADDING_TOP,
+            maxHeight: LINES_PER_PAGE * LINE_HEIGHT + PAGE_PADDING_TOP,
             overflow: "hidden",
-            whitespace: "pre-wrap",
+            whiteSpace: "pre-wrap",
           }}
         />
       ) : (
