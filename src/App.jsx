@@ -57,6 +57,19 @@ function emptyPage(id) {
   return { id, html: "" };
 }
 
+function insertPlainText(text) {
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  range.deleteContents();
+  const textNode = document.createTextNode(text);
+  range.insertNode(textNode);
+  range.setStartAfter(textNode);
+  range.setEndAfter(textNode);
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function PageEditor({
   pageId,
   initialHtml,
@@ -68,6 +81,21 @@ function PageEditor({
 }) {
   const [html] = useState(initialHtml);
 
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      insertPlainText("\n");
+      onInputPage(pageId);
+    }
+  };
+
+  const handlePaste = (e) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData("text/plain");
+    insertPlainText(text);
+    onInputPage(pageId);
+  };
+
   return (
     <div
       ref={(el) => registerRef(pageId, el)}
@@ -75,6 +103,8 @@ function PageEditor({
       suppressContentEditableWarning
       onFocus={() => onFocusPage(pageId)}
       onInput={() => onInputPage(pageId)}
+      onKeyDown={handleKeyDown}
+      onPaste={handlePaste}
       dangerouslySetInnerHTML={{ __html: html }}
       className={className}
       style={style}
@@ -338,6 +368,7 @@ export default function App() {
             minHeight: LINES_PER_PAGE * LINE_HEIGHT,
             maxHeight: LINES_PER_PAGE * LINE_HEIGHT,
             overflow: "hidden",
+            whitespace: "pre-wrap",
           }}
         />
       ) : (
