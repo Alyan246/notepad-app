@@ -1,3 +1,8 @@
+import bgCloudy from "./assets/backgrounds/cloudy-theme.png";
+import bgDark from "./assets/backgrounds/dark-theme.png";
+import bgDreamy from "./assets/backgrounds/dreamy-night-theme.png";
+import bgAutumn from "./assets/backgrounds/autumn-theme.png";
+import bgCherry from "./assets/backgrounds/cherry-blossoms-theme.png";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile } from "@tauri-apps/plugin-fs";
@@ -11,6 +16,7 @@ const THEMES = [
     lineColor: "#3a3a3a",
     textColor: "#1a1a1a",
     swatchTextColor: "#1a1a1a",
+    background: bgCloudy,
   },
   {
     id: "noir",
@@ -20,6 +26,7 @@ const THEMES = [
     lineColor: "#8a8a8f",
     textColor: "#f2f2f2",
     swatchTextColor: "#f2f2f2",
+    background: bgDark,
   },
   {
     id: "indigo",
@@ -29,15 +36,17 @@ const THEMES = [
     lineColor: "#8a8a8f",
     textColor: "#f2f2f2",
     swatchTextColor: "#f2f2f2",
+    background: bgDreamy,
   },
   {
     id: "sepia",
     swatch: "#f6e8ab",
     label: "Sepia",
-    pageBg: "#f2e8c9",
+    pageBg: "#f8c870",
     lineColor: "#8a7638",
     textColor: "#4a3d17",
     swatchTextColor: "#4a3418",
+    background: bgAutumn,
   },
   {
     id: "blossom",
@@ -47,6 +56,7 @@ const THEMES = [
     lineColor: "#a85a80",
     textColor: "#4a1f34",
     swatchTextColor: "#4a1f34",
+    background: bgCherry,
   },
 ];
 
@@ -410,8 +420,12 @@ export default function App() {
     <div
       className="min-h-screen flex flex-col items-center py-10 px-6"
       style={{
-        background:
-          "linear-gradient(180deg, #eef1f4 0%, #b6bcc8 55%, #9aa0ae 100%)",
+        backgroundImage: `url(${theme.background})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+    backgroundAttachment: "fixed",
+    transition: "background-image 0.3s ease",
       }}
     >
       {/*Toolbar*/}
