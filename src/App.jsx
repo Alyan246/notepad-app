@@ -421,11 +421,11 @@ export default function App() {
       className="min-h-screen flex flex-col items-center py-10 px-6"
       style={{
         backgroundImage: `url(${theme.background})`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-    backgroundAttachment: "fixed",
-    transition: "background-image 0.3s ease",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+        backgroundAttachment: "fixed",
+        transition: "background-image 0.3s ease",
       }}
     >
       {/*Toolbar*/}
