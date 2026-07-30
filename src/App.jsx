@@ -176,6 +176,12 @@ function placeCaretAtOffset(el, offset) {
 }
 
 export default function App() {
+  const undoStackRef = useRef([]);
+const redoStackRef = useRef([]);
+const pendingSnapshot = useRef(null);
+const historyTimer = useRef(null);
+const HISTORY_DEBOUNCE = 600;
+
   const [pages, setPages] = useState([emptyPage(1), emptyPage(2)]);
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [themeId, setThemeId] = useState("classic");
@@ -215,6 +221,21 @@ export default function App() {
     document.execCommand(command);
     refreshFormatState();
   };
+
+  useEffect(() => {
+  const handler = (e) => {
+    if (!(e.ctrlKey || e.metaKey)) return;
+    if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+      e.preventDefault();
+      undo();
+    } else if (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey)) {
+      e.preventDefault();
+      redo();
+    }
+  };
+  window.addEventListener("keydown", handler);
+  return () => window.removeEventListener("keydown", handler);
+}, [pages, themeId]); // re-bind so undo/redo always see current state, not a stale closure
 
   useEffect(() => {
     const task = overflowTask.current;
@@ -265,6 +286,44 @@ export default function App() {
     overflowTask.current = null;
   }, [pages, spreadIndex]);
 
+  const commitHistory = () => {
+  if (!pendingSnapshot.current) return;
+  undoStackRef.current = [...undoStackRef.current, pendingSnapshot.current].slice(-100);
+  redoStackRef.current = [];
+  pendingSnapshot.current = null;
+};
+
+const noteEditForHistory = () => {
+  if (!pendingSnapshot.current) {
+    pendingSnapshot.current = { pages, themeId };
+  }
+  clearTimeout(historyTimer.current);
+  historyTimer.current = setTimeout(commitHistory, HISTORY_DEBOUNCE);
+};
+
+const undo = () => {
+  syncFocusedPage();
+  commitHistory();
+  if (undoStackRef.current.length === 0) return;
+  const target = undoStackRef.current[undoStackRef.current.length - 1];
+  undoStackRef.current = undoStackRef.current.slice(0, -1);
+  redoStackRef.current = [...redoStackRef.current, { pages, themeId }];
+  setPages(target.pages);
+  setThemeId(target.themeId);
+  setDocVersion((v) => v + 1);
+};
+
+const redo = () => {
+  syncFocusedPage();
+  if (redoStackRef.current.length === 0) return;
+  const target = redoStackRef.current[redoStackRef.current.length - 1];
+  redoStackRef.current = redoStackRef.current.slice(0, -1);
+  undoStackRef.current = [...undoStackRef.current, { pages, themeId }];
+  setPages(target.pages);
+  setThemeId(target.themeId);
+  setDocVersion((v) => v + 1);
+};
+
   const syncFocusedPage = () => {
     const id = focusedPageId.current;
     const el = editorRefs.current[id];
@@ -276,6 +335,7 @@ export default function App() {
     const el = editorRefs.current[id];
     if (!el) return;
     el.scrollTop = 0;
+    noteEditForHistory();
     setPages((prev) =>
       prev.map((p) => (p.id === id ? { ...p, html: el.innerHTML } : p)),
     );
@@ -299,6 +359,7 @@ export default function App() {
 
   const addPagePair = () => {
     syncFocusedPage();
+    commitHistory();
     setPages((prev) => {
       const nextId = prev.length + 1;
       const updated = [...prev, emptyPage(nextId), emptyPage(nextId + 1)];
@@ -309,6 +370,7 @@ export default function App() {
 
   const jumpToPage = () => {
     syncFocusedPage();
+    commitHistory();
     const input = window.prompt(`Jump to page (1–${pages.length}):`);
     const num = parseInt(input, 10);
     if (!num || num < 1 || num > pages.length) return;
@@ -539,6 +601,7 @@ export default function App() {
           disabled={spreadIndex === 0}
           onClick={() => {
             syncFocusedPage();
+            commitHistory();
             setSpreadIndex((i) => Math.max(0, i - 1));
           }}
           className="px-3 py-1 rounded-full disabled:opacity-30"
@@ -561,6 +624,7 @@ export default function App() {
           <button
             onClick={() => {
               syncFocusedPage();
+              commitHistory();
               setSpreadIndex((i) => i + 1);
             }}
             className="px-3 py-1 rounded-full"
