@@ -113,10 +113,8 @@ function PageEditor({
       contentEditable
       suppressContentEditableWarning
       onFocus={() => onFocusPage(pageId)}
-      onInput={() => {
-        registerRef(pageId, editorRefs.current?.[pageId]);
-        onInputPage(pageId);
-      }}
+      onInput={() => onInputPage(pageId)}
+      onBlur={() => onInputPage(pageId)}
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       dangerouslySetInnerHTML={{ __html: html }}
@@ -267,6 +265,13 @@ export default function App() {
     overflowTask.current = null;
   }, [pages, spreadIndex]);
 
+  const syncFocusedPage = () => {
+    const id = focusedPageId.current;
+    const el = editorRefs.current[id];
+    if (!el) return;
+    setPages((prev) => prev.map((p) => (p.id === id ? { ...p, html: el.innerHTML } : p)));
+  };
+
   const updatePageContent = (id) => {
     const el = editorRefs.current[id];
     if (!el) return;
@@ -293,6 +298,7 @@ export default function App() {
   };
 
   const addPagePair = () => {
+    syncFocusedPage();
     setPages((prev) => {
       const nextId = prev.length + 1;
       const updated = [...prev, emptyPage(nextId), emptyPage(nextId + 1)];
@@ -302,6 +308,7 @@ export default function App() {
   };
 
   const jumpToPage = () => {
+    syncFocusedPage();
     const input = window.prompt(`Jump to page (1–${pages.length}):`);
     const num = parseInt(input, 10);
     if (!num || num < 1 || num > pages.length) return;
@@ -530,7 +537,10 @@ export default function App() {
       >
         <button
           disabled={spreadIndex === 0}
-          onClick={() => setSpreadIndex((i) => Math.max(0, i - 1))}
+          onClick={() => {
+            syncFocusedPage();
+            setSpreadIndex((i) => Math.max(0, i - 1));
+          }}
           className="px-3 py-1 rounded-full disabled:opacity-30"
           style={{ backgroundColor: "#dcdde1" }}
         >
@@ -549,7 +559,10 @@ export default function App() {
           </button>
         ) : (
           <button
-            onClick={() => setSpreadIndex((i) => i + 1)}
+            onClick={() => {
+              syncFocusedPage();
+              setSpreadIndex((i) => i + 1);
+            }}
             className="px-3 py-1 rounded-full"
             style={{ backgroundColor: "#dcdde1" }}
           >
